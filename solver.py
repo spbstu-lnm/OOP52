@@ -1,97 +1,151 @@
-### display board ###
-def display_brd(brd):
-    row_num = 0
-    column_num = 0
+"""Incremental backtracking solver used by direct and animated solving."""
 
-    for rows in brd:
-        for columns in rows:
-            print(columns, end=" ")
-            column_num += 1
-            if column_num == 3 or column_num == 6:
-                print("|", end=" ")
-        # for new line
-        print('')
-        row_num += 1
-        column_num = 0
-        if row_num == 3 or row_num == 6:
+from typing import Iterator
+from model import Board, CellPosition, SolverStatus
+
+
+class SudokuSolver:
+    def __init__(self) -> None:
+        self._status = SolverStatus.NOT_STARTED
+
+        self._search_state: Iterator[bool] | None = None
+
+        self._animate = False
+
+    @property
+    def status(self) -> SolverStatus:
+        return self._status
+
+    def start(self, board: Board, animate: bool) -> None:
+        self._animate = animate
+
+        if board.is_complete() and board.is_consistent():
+            self._status = SolverStatus.SOLVED
+            self._search_state = None
+
+            return
+
+        self._search_state = self._search(board)
+        self._status = SolverStatus.RUNNING
+
+        if not board.is_consistent():
+            self._status = SolverStatus.UNSOLVABLE
+            self._search_state = None
+
+    def _search(self, board: Board) -> Iterator[bool]:
+        empty = [CellPosition(r, c) for r in range(9) for c in range(9)
+                 if board.get_cell(CellPosition(r, c)).value == 0]
+
+        def visit(index: int) -> Iterator[bool]:
+            if index == len(empty):
+                return
+
+            position = empty[index]
+
+            for value in range(1, 10):
+                if board.is_valid_move(position, value):
+                    board.set_value(position, value)
+
+                    yield True
+
+                    yield from visit(index + 1)
+
+                    if board.is_complete() and board.is_consistent():
+                        return
+
+                    board.clear_value(position)
+
+                    yield True
+
+            return
+
+        yield from visit(0)
+
+    def solve_step(self, board: Board) -> bool:
+        if self._status is not SolverStatus.RUNNING or self._search_state is None:
+            return False
+
+        try:
+            next(self._search_state)
+
+            if board.is_complete() and board.is_consistent():
+                self._status = SolverStatus.SOLVED
+                self._search_state = None
+
+            return True
+        except StopIteration:
+            self._status = SolverStatus.UNSOLVABLE
+            self._search_state = None
+
+            return False
+
+    def reset(self) -> None:
+        self._status = SolverStatus.NOT_STARTED
+        self._search_state = None
+        self._animate = False
+
+
+def display_brd(brd: list[list[int]]) -> None:
+    for row_num, row in enumerate(brd, start=1):
+        print(" ".join(str(value) for value in row[:3]), "|",
+              " ".join(str(value) for value in row[3:6]), "|",
+              " ".join(str(value) for value in row[6:]))
+        if row_num in (3, 6):
             print("---------------------")
 
 
-### isFull ###
-def isFull(board):
-    for y in range(9):
-        for x in range(9):
-            if board[y][x] == 0:
-                return False
-    return True
+def isFull(board: list[list[int]]) -> bool:
+    return all(value != 0 for row in board for value in row)
 
 
-### first Empty ###
-def findEmpty(board):
-    for y in range(9):
-        for x in range(9):
-            if board[y][x] == 0:
-                return (y, x)
+def findEmpty(board: list[list[int]]) -> tuple[int, int] | None:
+    for y, row in enumerate(board):
+        for x, value in enumerate(row):
+            if value == 0:
+                return y, x
+
+    return None
 
 
-### possible to place ###
-def possible(board, x, y, num):
-    for i in range(9):
-        # check in row
-        if board[y][i] == num and i != x:
-            return False
-        # check in column
-        if board[i][x] == num and i != y:
-            return False
-    boxX = x // 3
-    boxY = y // 3
-    # check in box
-    for j in range(boxY*3, (boxY+1)*3):
-        for k in range(boxX*3, (boxX+1)*3):
-            if board[j][k] == num and (j, k) != (y, x):
-                return False
-    return True
+def possible(board: list[list[int]], x: int, y: int, num: int) -> bool:
+    return (1 <= num <= 9 and
+            all(board[y][col] != num for col in range(9) if col != x) and
+            all(board[row][x] != num for row in range(9) if row != y) and
+            all(board[row][col] != num
+                for row in range(y // 3 * 3, y // 3 * 3 + 3)
+                for col in range(x // 3 * 3, x // 3 * 3 + 3)
+                if (row, col) != (y, x)))
 
 
-### autosolve with backtracking ###
-def autosolve(board):
-    findSwitch = True
-    emptyList = []
-    while not isFull(board):
-        if findSwitch:
-            emptyList.append(findEmpty(board))
-        (y, x) = emptyList[-1]
-        prevNum = board[y][x]
-        num = prevNum + 1
-        if num == 10:
+def autosolve(board: list[list[int]]) -> bool:
+    """Solve a mutable 9x9 board in place; return whether a solution exists."""
+    empty = findEmpty(board)
+
+    if empty is None:
+        return all(possible(board, x, y, board[y][x])
+                   for y in range(9) for x in range(9) if board[y][x])
+
+    y, x = empty
+
+    for num in range(1, 10):
+        if possible(board, x, y, num):
+            board[y][x] = num
+
+            if autosolve(board):
+                return True
+
             board[y][x] = 0
-            emptyList.pop(-1)
-            findSwitch = False
-        while num < 10:
-            if possible(board, x, y, num):
-                board[y][x] = num
-                findSwitch = True
-                break
-            if num == 9:
-                board[y][x] = 0
-                emptyList.pop(-1)
-                findSwitch = False
-            num += 1
+
+    return False
 
 
-if __name__ == '__main__':
-    board = [  # ESY 01
-        [0, 9, 6, 0, 4, 0, 0, 3, 0],
-        [0, 5, 7, 8, 2, 0, 0, 0, 0],
-        [1, 0, 0, 9, 0, 0, 5, 0, 0],
-        [0, 0, 9, 0, 1, 0, 0, 0, 8],
-        [5, 0, 0, 0, 0, 0, 0, 0, 2],
-        [4, 0, 0, 0, 9, 0, 6, 0, 0],
-        [0, 0, 4, 0, 0, 3, 0, 0, 1],
-        [0, 0, 0, 0, 7, 9, 2, 6, 0],
-        [0, 2, 0, 0, 5, 0, 9, 8, 0]
-    ]
-    display_brd(board)
-    autosolve(board)
-    print('\n\n')
-    display_brd(board)
+if __name__ == "__main__":
+    from boards import giveBoard
+
+    puzzle = giveBoard("easy")
+    display_brd(puzzle)
+
+    autosolve(puzzle)
+
+    print("\nSolution:")
+    display_brd(puzzle)

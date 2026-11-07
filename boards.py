@@ -1,7 +1,36 @@
 import random
+from copy import deepcopy
+from typing import TypeAlias
+
+BoardData: TypeAlias = list[list[int]]
 
 
-def giveBoard(difficulty):
+def _is_consistent(board: BoardData) -> bool:
+    for row in range(9):
+        for col in range(9):
+            value = board[row][col]
+
+            if value == 0:
+                continue
+
+            if any(board[row][other] == value for other in range(9) if other != col):
+                return False
+
+            if any(board[other][col] == value for other in range(9) if other != row):
+                return False
+
+            box_row, box_col = row // 3 * 3, col // 3 * 3
+
+            if any(board[other_row][other_col] == value
+                   for other_row in range(box_row, box_row + 3)
+                   for other_col in range(box_col, box_col + 3)
+                   if (other_row, other_col) != (row, col)):
+                return False
+
+    return True
+
+
+def giveBoard(difficulty: str) -> BoardData:
     """
     EMPTY BOARD: # just in case of need
     [  # EMPTY
@@ -208,42 +237,34 @@ def giveBoard(difficulty):
         ]
     }
 
-    if difficulty == 'easy':
-        reqBoard = random.choice(boards['easy'])
-    elif difficulty == 'medium':
-        reqBoard = random.choice(boards['medium'])
-    elif difficulty == 'hard':
-        reqBoard = random.choice(boards['hard'])
-    elif difficulty == 'veryHard':
-        reqBoard = random.choice(boards['veryHard'])
+    if difficulty not in boards:
+        raise ValueError(f"Unknown difficulty: {difficulty}")
 
-    return reqBoard
+    valid_boards = [board for board in boards[difficulty] if _is_consistent(board)]
+
+    if not valid_boards:
+        raise ValueError(f"No consistent puzzles for difficulty: {difficulty}")
+
+    return deepcopy(random.choice(valid_boards))
 
 
-def display_brd(brd):
-    row_num = 0
-    column_num = 0
-
-    for rows in brd:
-        for columns in rows:
-            print(columns, end=" ")
-            column_num += 1
-            if column_num == 3 or column_num == 6:
-                print("|", end=" ")
-        # for new line
-        print('')
-        row_num += 1
-        column_num = 0
-        if row_num == 3 or row_num == 6:
+def display_brd(brd: BoardData) -> None:
+    for row_num, row in enumerate(brd, start=1):
+        print(" ".join(str(value) for value in row[:3]), "|",
+              " ".join(str(value) for value in row[3:6]), "|",
+              " ".join(str(value) for value in row[6:]))
+        if row_num in (3, 6):
             print("---------------------")
 
 
 if __name__ == '__main__':
-
     while True:
         try:
             difficulty = input(
                 "_ENTER DIFFICULTY OF SUDOKU_\n~(E)asy (M)edium (H)ard (V)eryHard or (Q)uit~\n : ")
+
+            if not difficulty:
+                continue
             if difficulty.lower()[0] == 'e':
                 board = giveBoard('easy')
                 display_brd(board)
@@ -261,5 +282,6 @@ if __name__ == '__main__':
             else:
                 print("\n\nPlease try again..\n\n")
                 continue
-        except:
+
+        except (ValueError, IndexError):
             print("\n\nSomething went wrong.\nPlease try again..\n\n")
