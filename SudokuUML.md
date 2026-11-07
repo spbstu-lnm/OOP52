@@ -16,6 +16,7 @@ namespace Model {
     }
 
     class SudokuGame {
+        -observers: list~IObserver~
         -difficulty: Difficulty
         -mode: GameMode
         -status: GameStatus
@@ -32,6 +33,9 @@ namespace Model {
         +advance_solver_step() bool
         +update_elapsed_time(delta_seconds: float) void
         +check_completion() bool
+        +attach(observer: IObserver) void
+        +detach(observer: IObserver) void
+        +notify(event: ModelEvent) void
     }
 
     class Board {
@@ -141,17 +145,19 @@ namespace Controller {
     }
 
     class GameController {
+        -model: SudokuGame
+        -view: SudokuView
+        -event_source: IEventSource
+        -audio_service: IAudioService
         -running: bool
         -animated_solving: bool
         -last_tick: float
         +run() void
         +update() void
         +handle_event(event: InputEvent) void
+        +handle_keyboard_input(event: InputEvent) Optional~UIAction~
+        +handle_mouse_input(event: InputEvent) Optional~UIAction~
         +dispatch_action(action: UIAction) void
-        +start_game(difficulty: Difficulty) void
-        +start_solver_mode() void
-        +handle_keyboard_input(event: InputEvent) void
-        +handle_mouse_input(event: InputEvent) void
         +handle_solver_step() void
         +return_to_main_menu() void
         +exit_application() void
@@ -185,16 +191,17 @@ namespace View {
     }
 
     class SudokuView {
+        -renderer: IRenderer
         -last_snapshot: GameSnapshot
         -dirty: bool
         -hovered_action: UIAction
-        -active_screen: ScreenType
-        -active_dialog: DialogType
+        -active_screen: ScreenView
+        -active_dialog: DialogView
         +update(event: ModelEvent) void
         +show_screen(screen: ScreenType) void
         +show_dialog(dialog: DialogType) void
         +dismiss_dialog() void
-        +get_action_at(position: tuple) UIAction
+        +get_action_at(position: tuple) Optional~UIAction~
         +handle_pointer_move(position: tuple) void
         -render_if_dirty() void
         +close() void
@@ -202,59 +209,55 @@ namespace View {
 
     class ScreenView {
         <<abstract>>
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class IntroScreen {
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class MainMenuScreen {
         -menu_items: tuple
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class DifficultyMenuScreen {
         -difficulties: tuple
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class ScoreBoardScreen {
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class GameScreen {
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class SolverScreen {
-        +hit_test(position: tuple) UIAction
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class DialogView {
-        <<abstract>>
-        +hit_test(position: tuple) UIAction
-    }
-
-    class ConfirmReturnToMenuDialog {
-        +hit_test(position: tuple) UIAction
-    }
-
-    class AutoSolveDialog {
-        +hit_test(position: tuple) UIAction
+        -type: DialogType
+        -message: str
+        -actions: tuple~UIActionType~
+        +configure(type: DialogType) void
+        +hit_test(position: tuple) Optional~UIAction~
     }
 
     class UIAction {
         <<data object>>
         +action_type: UIActionType
-        +cell_position: CellPosition
-        +digit: int
-        +difficulty: Difficulty
+        +cell_position: Optional~CellPosition~
+        +digit: Optional~int~
+        +difficulty: Optional~Difficulty~
+        +dialog_type: Optional~DialogType~
     }
 
     class UIActionType {
         <<enumeration>>
-        ENTER
+        CONTINUE_FROM_INTRO
         PLAY
         OPEN_SOLVER
         OPEN_SCORE_BOARD
@@ -264,6 +267,8 @@ namespace View {
         SELECT_CELL
         ENTER_DIGIT
         CLEAR_CELL
+        REQUEST_RETURN_TO_MENU
+        REQUEST_AUTO_SOLVE
         CONFIRM
         CANCEL
         DIRECT_SOLUTION
@@ -349,20 +354,22 @@ Board "1" *-- "81" Cell : consists of
 Cell "1" -- "1" CellPosition : position
 SudokuSolver "1" -- "1" Board : solves
 SudokuSolver "1" -- "1" SolverStatus : status
+BoardRepository "1" -- "0..*" Board : provides puzzles
 
 ModelEvent "0..*" -- "1" GameSnapshot : contains snapshot
 ModelEvent "0..*" -- "1" ModelEventType : event type
 ModelEvent "0..*" -- "0..*" CellPosition : changed cells
-GameSnapshot "1" -- "0..1" CellPosition : selected cell
-GameSnapshot "1" -- "1" Difficulty : difficulty
-GameSnapshot "1" -- "1" GameMode : mode
-GameSnapshot "1" -- "1" GameStatus : status
-GameSnapshot "1" -- "1" SolverStatus : solver status
+GameSnapshot "0..*" -- "0..1" CellPosition : selected cell
+GameSnapshot "0..*" -- "1" Difficulty : difficulty
+GameSnapshot "0..*" -- "1" GameMode : mode
+GameSnapshot "0..*" -- "1" GameStatus : status
+GameSnapshot "0..*" -- "1" SolverStatus : solver status
 
 GameController "1" -- "1" SudokuGame : sends commands
 GameController "1" -- "1" SudokuView : controls navigation
 GameController "1" -- "1" IEventSource : receives input
 GameController "1" -- "1" IAudioService : controls audio
+GameController "1" -- "0..1" DialogType : selects dialog
 GameController "1" -- "0..*" InputEvent : processes
 GameController "1" -- "0..*" UIAction : dispatches
 
@@ -371,11 +378,11 @@ PyGameEventSource "1" -- "0..*" InputEvent : creates events
 
 SudokuView "1" -- "1" IRenderer : delegates rendering
 SudokuView "1" -- "0..*" ModelEvent : receives notifications
-SudokuView "1" -- "1" GameSnapshot : caches latest snapshot
+SudokuView "1" -- "0..1" GameSnapshot : latest snapshot
 SudokuView "1" *-- "1..*" ScreenView : owns screens
-SudokuView "1" *-- "0..*" DialogView : owns dialogs
+SudokuView "1" *-- "1" DialogView : reusable dialog
 SudokuView "1" -- "1" ScreenType : active screen
-SudokuView "1" -- "1" DialogType : active dialog
+DialogView "1" -- "1" DialogType : current configuration
 
 ScreenView <|-- IntroScreen
 ScreenView <|-- MainMenuScreen
@@ -384,22 +391,17 @@ ScreenView <|-- ScoreBoardScreen
 ScreenView <|-- GameScreen
 ScreenView <|-- SolverScreen
 
-DialogView <|-- ConfirmReturnToMenuDialog
-DialogView <|-- AutoSolveDialog
-
 ScreenView "1" -- "0..*" UIAction : hit test results
 DialogView "1" -- "0..*" UIAction : hit test results
 DifficultyMenuScreen "1" -- "0..*" Difficulty : difficulty choices
-GameScreen "1" -- "0..1" ConfirmReturnToMenuDialog : exit confirmation
-GameScreen "1" -- "0..1" AutoSolveDialog : solve confirmation
-SolverScreen "1" -- "0..1" AutoSolveDialog : solve confirmation
 
 UIAction "0..*" -- "1" UIActionType : action type
 UIAction "0..*" -- "0..1" CellPosition : selected cell
 UIAction "0..*" -- "0..1" Difficulty : selected difficulty
+UIAction "0..*" -- "0..1" DialogType : dialog context
 
 PyGameRenderer "1" -- "0..*" GameSnapshot : displays state
 PyGameRenderer "1" -- "0..*" ScreenView : draws screens
-PyGameRenderer "1" -- "0..*" DialogView : draws dialogs
+PyGameRenderer "1" -- "0..1" DialogView : draws active dialog
 PyGameAudioService "1" -- "0..*" SoundEffect : plays effects
 ```
