@@ -197,7 +197,7 @@ class ModelEvent:
 
 class BoardRepository:
     def get_board(self, difficulty: Difficulty) -> Board:
-        from boards import giveBoard
+        from .boards import giveBoard
 
         return Board(giveBoard(difficulty.value), fixed=True)
 
@@ -207,7 +207,7 @@ class BoardRepository:
 
 class SudokuGame(ISubject):
     def __init__(self, repository: BoardRepository | None = None) -> None:
-        from solver import SudokuSolver
+        from .solver import SudokuSolver
 
         self._observers: list[IObserver] = []
 

@@ -5,9 +5,9 @@ from enum import Enum, auto
 import time
 from typing import Protocol
 
-from audio import IAudioService, SoundEffect
-from model import Board, Difficulty, GameMode, GameStatus, SudokuGame
-from view import (DialogType, ScreenType, SudokuView, UIAction, UIActionType)
+from .audio import IAudioService, SoundEffect
+from .model import Board, Difficulty, GameMode, GameStatus, SudokuGame
+from .view import (DialogType, ScreenType, SudokuView, UIAction, UIActionType)
 
 
 class InputEventType(Enum):

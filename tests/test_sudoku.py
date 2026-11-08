@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import unittest
 
-from audio import SoundEffect
-from controller import GameController, InputEvent, InputEventType
-from model import (Board, CellPosition, Difficulty, GameMode, GameStatus,
-                   BoardRepository, ModelEvent, ModelEventType, SolverStatus,
-                   SudokuGame)
-from solver import SudokuSolver
-from view import (DialogType, ScreenType, SudokuView, UIAction, UIActionType)
+from src.audio import SoundEffect
+from src.controller import GameController, InputEvent, InputEventType
+from src.model import (Board, CellPosition, Difficulty, GameMode, GameStatus,
+                       BoardRepository, ModelEvent, ModelEventType, SolverStatus,
+                       SudokuGame)
+from src.solver import SudokuSolver
+from src.view import (DialogType, ScreenType, SudokuView, UIAction, UIActionType)
 
 
 PUZZLE = [

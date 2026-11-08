@@ -1,7 +1,7 @@
 """Incremental backtracking solver used by direct and animated solving."""
 
 from typing import Iterator
-from model import Board, CellPosition, SolverStatus
+from .model import Board, CellPosition, SolverStatus
 
 
 class SudokuSolver:
@@ -140,7 +140,7 @@ def autosolve(board: list[list[int]]) -> bool:
 
 
 if __name__ == "__main__":
-    from boards import giveBoard
+    from .boards import giveBoard
 
     puzzle = giveBoard("easy")
     display_brd(puzzle)

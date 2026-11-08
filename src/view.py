@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Protocol
 
-from model import (CellPosition, Difficulty, GameSnapshot, IObserver, ModelEvent,
-                   ModelEventType)
+from .model import (CellPosition, Difficulty, GameSnapshot, IObserver, ModelEvent,
+                    ModelEventType)
 
 
 class UIActionType(Enum):
@@ -281,13 +282,11 @@ class PyGameRenderer(IRenderer):
     WIDTH = 600
     HEIGHT = 800
 
-    def __init__(self) -> None:
+    def __init__(self, asset_directory: Path | None = None) -> None:
         import pygame as pg
-        from pathlib import Path
 
         self._pg = pg
-        # path to assets hardcoded as parent directory
-        self._assets = Path(__file__).resolve().parent
+        self._assets = asset_directory or Path(__file__).resolve().parent.parent / "assets" / "fonts"
 
         pg.init()
 

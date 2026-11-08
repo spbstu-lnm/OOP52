@@ -27,7 +27,7 @@ class PyGameAudioService(IAudioService):
         self._pygame = pygame
 
         # asset dir path can be passed via args
-        self._asset_directory = asset_directory or Path(__file__).resolve().parent
+        self._asset_directory = asset_directory or Path(__file__).resolve().parent.parent / "assets" / "audio"
 
         self._effects: dict[SoundEffect, object] = {}
         self._enabled = False
