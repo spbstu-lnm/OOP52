@@ -1,5 +1,4 @@
 """Unit tests for the Sudoku model, solver, repository, and controller."""
-from __future__ import annotations
 
 import unittest
 
